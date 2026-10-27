@@ -1,69 +1,138 @@
-import Image from "next/image";
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
 
 export default function Home() {
+  const [name, setName] = useState('');
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  const loadUsers = useCallback(async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/users');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load users');
+      }
+
+      setUsers(data);
+    } catch (error) {
+      setError(error.message || 'Failed to load users');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create user');
+      }
+
+      setUsers((currentUsers) => [...currentUsers, data]);
+      setName('');
+      setMessage(`Created user ${data.name}.`);
+    } catch (error) {
+      setError(error.message || 'Failed to create user');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="mx-auto w-full max-w-2xl px-6 py-12">
+      <h1 className="text-3xl font-semibold">Users</h1>
+      <p className="mt-2 text-zinc-600">
+        Create users and view the records stored in Neon.
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-8 flex gap-3">
+        <label className="sr-only" htmlFor="user-name">
+          Name
+        </label>
+        <input
+          id="user-name"
+          name="name"
+          type="text"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Enter a name"
+          required
+          className="min-w-0 flex-1 rounded-md border border-zinc-300 px-3 py-2"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.js
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+        <button
+          type="submit"
+          disabled={isSubmitting || !name.trim()}
+          className="rounded-md bg-zinc-900 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isSubmitting ? 'Saving…' : 'Add user'}
+        </button>
+      </form>
+
+      <div className="mt-8 flex items-center justify-between">
+        <h2 className="text-xl font-medium">Saved users</h2>
+        <button
+          type="button"
+          onClick={() => void loadUsers()}
+          disabled={isLoading}
+          className="text-sm underline disabled:opacity-50"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {error && (
+        <p role="alert" className="mt-4 text-red-700">
+          {error}
+        </p>
+      )}
+      {message && (
+        <p role="status" className="mt-4 text-green-700">
+          {message}
+        </p>
+      )}
+      {isLoading ? (
+        <p className="mt-4 text-zinc-600">Loading users…</p>
+      ) : users.length > 0 ? (
+        <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200">
+          {users.map((user) => (
+            <li
+              key={user.id}
+              className="flex items-center justify-between gap-4 px-4 py-3"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+              <span>{user.name}</span>
+              <time className="text-sm text-zinc-500">
+                {new Date(user.created_at).toLocaleString()}
+              </time>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        !error && <p className="mt-4 text-zinc-600">No users yet.</p>
+      )}
+    </main>
   );
 }
